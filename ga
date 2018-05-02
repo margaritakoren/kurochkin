@@ -1,0 +1,198 @@
+import numpy as np
+import random
+import argparse
+import math
+
+'''
+Five phases are considered in a genetic algorithm.
+
+1.Initial population
+2.Fitness function
+3.Selection
+4.Crossover
+5.Mutation
+6.Every Nth epochs - Migration
+'''
+
+'''Couple of fitnes-function from the list '''
+
+migration_freq = 200
+l_border_x = -15
+r_border_x = -5
+l_border_y = -3
+r_border_y = 3
+
+if l_border_x > l_border_y:
+    l_border = l_border_y
+else: l_border = l_border_x
+
+if r_border_x > r_border_y:
+    r_border = r_border_y
+else: r_border = r_border_x
+
+def function_bukin(vec):
+    x, y = vec[0], vec[1]
+    res = 0.0
+
+    term1 = 100 * math.sqrt(abs(y - 0.01 * math.pow(x, 2)))
+    term2 = 0.01 * abs(x + 10)
+    res = term1 + term2
+    return res
+
+def function_cross(vec):
+    x, y = vec[0], vec[1]
+    res = 0.0
+
+    term1 = abs(100 - math.sqrt(x ** 2 + y ** 2)/math.pi)
+    term2 = abs(math.sin(x)*math.sin(y)*math.exp(term1)) + 1
+    res = -0.0001*(term2 ** 0.1)
+    return res
+
+def function_table(vec):
+    x, y = vec[0], vec[1]
+    res = 0.0
+
+    term1 = abs(1 - math.sqrt(x ** 2 + y ** 2)/math.pi)
+    term2 = abs(math.sin(x)*math.cos(y)*math.exp(term1))
+    res = -term2
+    return res
+
+def function_beale(vec): # Beale function, min = 0 при x = 3 и y = 0.5, [-4.5 <= x,y <= 4.5] 
+    x, y = vec[0], vec[1]
+    res = 0.0
+
+    term1 = (1.5 - x + x * y) * (1.5 - x + x * y)
+    term2 = (2.25 - x + x * y * y) * (2.25 - x + x * y * y)
+    term3 = (2.625 - x + x * y * y * y) * (2.625 - x + x * y * y * y)
+
+    res = term1 + term2 + term3
+
+    return res
+
+def function_booth(vec): # Booth function, min = 0 при x = 1 и y = 3, [-10 <= x,y <= 10] 
+    x, y = vec[0], vec[1]
+    res = 0.0
+
+    term1 = (x + 2 * y - 7) ** 2
+    term2 = (2 * x + y - 5) ** 2
+
+    res = term1 + term2
+    return res
+
+def function_matyas(vec):
+    x, y = vec[0], vec[1]
+    res = 0.0
+
+    term1 = 0.26 * (x ** 2 + y ** 2)
+    term2 = 0.48*x*y
+    res = term1 + term2
+
+    return res
+
+def generate_individual(l_border, r_border, size = 2):
+    individual = np.random.uniform(l_border, r_border, size)
+    return individual
+
+def generate_individual_both(l_border_x, l_border_y, r_border_x, r_border_y):
+    point = []
+    x = np.random.uniform(l_border_x, r_border_x)
+    y = np.random.uniform(l_border_y, r_border_y)
+    point.append(x)
+    point.append(y)
+    return point
+
+def fitness_function(vec):
+    fitness_val = function_bukin(vec)
+    return fitness_val
+
+def selection(list):
+    list.sort(key = lambda list:list[1])
+    del list[-1]
+    return list
+
+def crossing(series):
+    parent1, parent2 = series[0][0], series[1][0]
+    child = np.zeros(len(parent1), dtype = float)
+    child[0] = parent1[0]
+    child[1] = parent2[1]
+    return child
+
+
+def mutate(vec, l_border, r_border):
+    res = np.copy(vec)
+    m = 40
+    num_genes = random.randint(0, 1) + 1
+    for i in range(num_genes):
+        temp_res = 0.0
+        sigma = 0.0
+        for j in range(m):
+            if random.randint(0, 20) == 0:
+                sigma += 1.0 * (2 ** -j)
+            alpha = (r_border - l_border)/2
+            if random.randint(0, 1) == 0:
+                res[i] = vec[i] + alpha * sigma
+            else:
+                res[i] = vec[i] - alpha * sigma
+        if res[i] > r_border:
+            res[i] = r_border
+        elif res[i] < l_border:
+            res[i] = l_border
+    return res
+
+def migrate(series1, series2):
+    index1 = random.randint(0, len(series1) - 1)
+    index2 = random.randint(0, len(series2) - 1)
+    temp = ([])
+    temp = series1[index1]
+    series1[index1] = series2[index2]
+    series2[index2] = temp
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'Genitor algorithm util')
+    parser.add_argument('-dim', required = True, default = 2, help = 'Number of gens', type = int)
+    parser.add_argument('-num', required = True, default = 10, help = 'Number of individuals in population', type = int)
+    parser.add_argument('-epochs', required = True, default = 2000, help = 'Number of epochs', type = int)
+    parser.add_argument('-islands', required = True, default = 5, help = 'Number of islands', type = int)
+
+    args = parser.parse_args()
+    #First initilization
+
+    population = []
+    for j in range(args.islands):
+        lst = []
+        for i in range(args.num):
+            # ind = generate_individual(l_border, r_border, args.dim)
+            ind = generate_individual_both(l_border_x, l_border_y, r_border_x, r_border_y)
+            lst.append([ind, fitness_function(ind)])
+        population.append(lst)
+
+    # Evolution
+
+    for j in range(args.epochs):
+        for i in range(args.islands):
+           # print(population[i])
+            selection(population[i])
+           # print(population[i])
+            new_ind = crossing(population[i])
+            mutated = mutate(new_ind, l_border, r_border)
+            population[i].append([mutated, fitness_function(mutated)])
+
+        if j % migration_freq == 0:
+            for i in range(args.islands):
+                if i <= args.islands - 3:
+                    # print(population[i])
+                    migrate(population[i], population[i + 1])
+                    #print(population[i])
+                    #print(population[i + 1])
+                    migrate(population[i], population[i + 2])
+                elif i == args.islands - 2:
+                    migrate(population[i], population[i + 1])
+                    migrate(population[i], population[0])
+                elif i == args.islands - 1:
+                    migrate(population[i], population[0])
+                    migrate(population[i], population[1])
+
+    for i in range(args.islands):
+        print(np.around((population[i][0][0]), decimals = 6), round(population[i][0][1], 6))
+        # print(population[i][0])
